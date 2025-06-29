@@ -5,6 +5,11 @@ import EditableDataGrid from '@/components/EditableDataGrid';
 import { Client, Worker, Task, RowError } from '@/types/data';
 import { normalizeClient, normalizeWorker, normalizeTask, mapHeadersWithAI } from '@/lib/parsing';
 import { validateClients, validateWorkers, validateTasks } from '@/lib/validation';
+import RuleSection from '@/components/RuleSection';
+import { Rule } from '@/components/RuleBuilder';
+import PrioritizationSection from '@/components/PrioritizationSection';
+import { Weights } from '@/components/PrioritizationPanel';
+import ExportPanel from '@/components/ExportPanel';
 
 export default function HomePage() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -13,6 +18,14 @@ export default function HomePage() {
   const [clientErrors, setClientErrors] = useState<RowError[]>([]);
   const [workerErrors, setWorkerErrors] = useState<RowError[]>([]);
   const [taskErrors, setTaskErrors] = useState<RowError[]>([]);
+  const [rules, setRules] = useState<Rule[]>([]);
+  const [weights, setWeights] = useState<Weights>({
+    priority: 3,
+    fairness: 3,
+    cost: 3,
+    fulfillment: 3,
+    workload: 3,
+  });
 
   // Run validations whenever data changes
   useEffect(() => {
@@ -120,6 +133,36 @@ export default function HomePage() {
             />
           </Card>
         </div>
+      </section>
+      <section className="mb-12 mt-12">
+        <h2 className="text-2xl font-semibold mb-4 text-slate-700">3. Define Business Rules</h2>
+        <Card>
+          <RuleSection
+            rules={rules}
+            setRules={setRules}
+            taskIDs={tasks.map(t => t.TaskID)}
+            clientGroups={[...new Set(clients.map(c => c.GroupTag))].filter(Boolean)}
+            workerGroups={[...new Set(workers.map(w => w.WorkerGroup))].filter(Boolean)}
+          />
+        </Card>
+      </section>
+      <section className="mb-12 mt-12">
+        <h2 className="text-2xl font-semibold mb-4 text-slate-700">4. Prioritization & Weights</h2>
+        <Card>
+          <PrioritizationSection weights={weights} setWeights={setWeights} />
+        </Card>
+      </section>
+      <section className="mb-12 mt-12">
+        <h2 className="text-2xl font-semibold mb-4 text-slate-700">5. Export Cleaned Data & Rules</h2>
+        <Card>
+          <ExportPanel
+            clients={clients}
+            workers={workers}
+            tasks={tasks}
+            rules={rules}
+            weights={weights}
+          />
+        </Card>
       </section>
     </main>
   );

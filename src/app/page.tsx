@@ -10,6 +10,8 @@ import { Rule } from '@/components/RuleBuilder';
 import PrioritizationSection from '@/components/PrioritizationSection';
 import { Weights } from '@/components/PrioritizationPanel';
 import ExportPanel from '@/components/ExportPanel';
+import EntitySection from '@/components/EntitySection';
+import AiValidatorPanel from '@/components/AiValidatorPanel';
 
 export default function HomePage() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -26,6 +28,10 @@ export default function HomePage() {
     fulfillment: 3,
     workload: 3,
   });
+  const [validatorOpen, setValidatorOpen] = useState(false);
+  const [validatorLoading, setValidatorLoading] = useState(false);
+  const [validatorFindings, setValidatorFindings] = useState<string[]>([]);
+  const [validatorError, setValidatorError] = useState<string | null>(null);
 
   // Run validations whenever data changes
   useEffect(() => {
@@ -82,79 +88,144 @@ export default function HomePage() {
     setTasks(mapped);
   };
 
+  async function runAiValidator() {
+    setValidatorOpen(true);
+    setValidatorLoading(true);
+    setValidatorError(null);
+    setValidatorFindings([]);
+    try {
+      const res = await fetch('/api/aiValidator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clients, workers, tasks, rules }),
+      });
+      const data = await res.json();
+      setValidatorFindings(data.findings || []);
+    } catch (e: any) {
+      setValidatorError(e.message || 'Failed to run AI Validator');
+    } finally {
+      setValidatorLoading(false);
+    }
+  }
+
   return (
     <main className="container mx-auto py-10 px-4 min-h-screen bg-gradient-to-br from-slate-50 to-slate-200">
+      <section className="mb-8">
+        <div className="flex items-center gap-4">
+          <h2 className="text-2xl font-semibold text-slate-700">AI Validator</h2>
+          <button
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm"
+            onClick={runAiValidator}
+            disabled={validatorLoading}
+          >
+            {validatorLoading ? 'Running...' : 'Run AI Validator'}
+          </button>
+        </div>
+        <AiValidatorPanel
+          findings={validatorFindings}
+          loading={validatorLoading}
+          error={validatorError}
+          open={validatorOpen}
+          onClose={() => setValidatorOpen(false)}
+        />
+      </section>
       <div className="mb-10 text-center">
         <h1 className="text-4xl font-extrabold tracking-tight mb-2 text-slate-800">Data Alchemist</h1>
         <p className="text-lg text-slate-600">AI Resource-Allocation Configurator</p>
       </div>
       <section className="mb-12">
-        <h2 className="text-2xl font-semibold mb-4 text-slate-700">1. Upload Your Data</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <FileUploader label="Clients" onFileParsed={handleClients} />
-          </Card>
-          <Card>
-            <FileUploader label="Workers" onFileParsed={handleWorkers} />
-          </Card>
-          <Card>
-            <FileUploader label="Tasks" onFileParsed={handleTasks} />
-          </Card>
+        <div className="flex items-center mb-6 gap-4">
+          <span className="bg-gradient-to-tr from-blue-500 to-purple-500 text-white rounded-full w-12 h-12 flex items-center justify-center text-2xl font-extrabold shadow-lg border-4 border-white">1</span>
+          <h2 className="text-3xl font-extrabold tracking-tight text-slate-800 drop-shadow-sm">Upload Your Data</h2>
+        </div>
+        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-2xl p-6 flex flex-col items-center gap-4">
+          <div className="flex flex-row gap-8 w-full justify-center">
+            <div className="flex flex-col items-center gap-2">
+              <FileUploader label="Clients" icon="users" compact onFileParsed={handleClients} />
+              <span className={`text-xs mt-1 ${clients.length ? 'text-green-600' : 'text-gray-400'}`}>{clients.length ? 'Uploaded' : 'Not uploaded'}</span>
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <FileUploader label="Workers" icon="briefcase" compact onFileParsed={handleWorkers} />
+              <span className={`text-xs mt-1 ${workers.length ? 'text-green-600' : 'text-gray-400'}`}>{workers.length ? 'Uploaded' : 'Not uploaded'}</span>
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <FileUploader label="Tasks" icon="clipboard-list" compact onFileParsed={handleTasks} />
+              <span className={`text-xs mt-1 ${tasks.length ? 'text-green-600' : 'text-gray-400'}`}>{tasks.length ? 'Uploaded' : 'Not uploaded'}</span>
+            </div>
+          </div>
         </div>
       </section>
       <section>
-        <h2 className="text-2xl font-semibold mb-4 text-slate-700">2. Edit & Validate Data</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
+        <div className="flex items-center mb-6 gap-4">
+          <span className="bg-gradient-to-tr from-green-500 to-blue-500 text-white rounded-full w-12 h-12 flex items-center justify-center text-2xl font-extrabold shadow-lg border-4 border-white">2</span>
+          <h2 className="text-3xl font-extrabold tracking-tight text-slate-800 drop-shadow-sm">Edit & Validate Data</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-2xl p-8 border border-slate-200 min-h-[200px] flex flex-col justify-center transition-all duration-300 hover:shadow-[0_8px_32px_0_rgba(31,38,135,0.15)]">
             <EntitySection
               title="Clients"
               data={clients}
               setData={setClients}
               errors={clientErrors}
               errorSummary={clientErrors}
+              entity="clients"
             />
-          </Card>
-          <Card>
+          </div>
+          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-2xl p-8 border border-slate-200 min-h-[200px] flex flex-col justify-center transition-all duration-300 hover:shadow-[0_8px_32px_0_rgba(31,38,135,0.15)]">
             <EntitySection
               title="Workers"
               data={workers}
               setData={setWorkers}
               errors={workerErrors}
               errorSummary={workerErrors}
+              entity="workers"
             />
-          </Card>
-          <Card>
+          </div>
+          <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-2xl p-8 border border-slate-200 min-h-[200px] flex flex-col justify-center transition-all duration-300 hover:shadow-[0_8px_32px_0_rgba(31,38,135,0.15)]">
             <EntitySection
               title="Tasks"
               data={tasks}
               setData={setTasks}
               errors={taskErrors}
               errorSummary={taskErrors}
+              entity="tasks"
             />
-          </Card>
+          </div>
         </div>
       </section>
       <section className="mb-12 mt-12">
-        <h2 className="text-2xl font-semibold mb-4 text-slate-700">3. Define Business Rules</h2>
-        <Card>
+        <div className="flex items-center mb-6 gap-4">
+          <span className="bg-gradient-to-tr from-purple-500 to-pink-500 text-white rounded-full w-12 h-12 flex items-center justify-center text-2xl font-extrabold shadow-lg border-4 border-white">3</span>
+          <h2 className="text-3xl font-extrabold tracking-tight text-slate-800 drop-shadow-sm">Define Business Rules</h2>
+        </div>
+        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-2xl p-10 border border-slate-200 flex flex-col gap-8 transition-all duration-300 hover:shadow-[0_8px_32px_0_rgba(191,38,135,0.15)]">
           <RuleSection
             rules={rules}
             setRules={setRules}
             taskIDs={tasks.map(t => t.TaskID)}
             clientGroups={[...new Set(clients.map(c => c.GroupTag))].filter(Boolean)}
             workerGroups={[...new Set(workers.map(w => w.WorkerGroup))].filter(Boolean)}
+            clients={clients}
+            workers={workers}
+            tasks={tasks}
           />
-        </Card>
+        </div>
       </section>
       <section className="mb-12 mt-12">
-        <h2 className="text-2xl font-semibold mb-4 text-slate-700">4. Prioritization & Weights</h2>
-        <Card>
+        <div className="flex items-center mb-6 gap-4">
+          <span className="bg-gradient-to-tr from-pink-500 to-orange-400 text-white rounded-full w-12 h-12 flex items-center justify-center text-2xl font-extrabold shadow-lg border-4 border-white">4</span>
+          <h2 className="text-3xl font-extrabold tracking-tight text-slate-800 drop-shadow-sm">Prioritization & Weights</h2>
+        </div>
+        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-2xl p-10 border border-slate-200 flex flex-col gap-8 transition-all duration-300 hover:shadow-[0_8px_32px_0_rgba(255,99,71,0.15)]">
           <PrioritizationSection weights={weights} setWeights={setWeights} />
-        </Card>
+        </div>
       </section>
       <section className="mb-12 mt-12">
-        <h2 className="text-2xl font-semibold mb-4 text-slate-700">5. Export Cleaned Data & Rules</h2>
-        <Card>
+        <div className="flex items-center mb-6 gap-4">
+          <span className="bg-gradient-to-tr from-green-400 to-blue-500 text-white rounded-full w-12 h-12 flex items-center justify-center text-2xl font-extrabold shadow-lg border-4 border-white">5</span>
+          <h2 className="text-3xl font-extrabold tracking-tight text-slate-800 drop-shadow-sm">Export Cleaned Data & Rules</h2>
+        </div>
+        <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-2xl p-10 border border-slate-200 flex flex-col gap-8 transition-all duration-300 hover:shadow-[0_8px_32px_0_rgba(38,135,191,0.15)]">
           <ExportPanel
             clients={clients}
             workers={workers}
@@ -162,7 +233,7 @@ export default function HomePage() {
             rules={rules}
             weights={weights}
           />
-        </Card>
+        </div>
       </section>
     </main>
   );
@@ -170,137 +241,8 @@ export default function HomePage() {
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl shadow-md p-6 border border-slate-100 min-h-[180px] flex flex-col justify-center">
+    <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-2xl p-8 border border-slate-200 min-h-[200px] flex flex-col justify-center transition-all duration-300 hover:shadow-[0_8px_32px_0_rgba(31,38,135,0.15)]">
       {children}
-    </div>
-  );
-}
-
-function EntitySection<T extends Record<string, any>>({ title, data, setData, errors, errorSummary }: {
-  title: string;
-  data: T[];
-  setData: (d: T[]) => void;
-  errors: { rowIndex: number; column: string; message: string }[];
-  errorSummary: { rowIndex: number; column: string; message: string }[];
-}) {
-  const [mode, setMode] = useState<'preview' | 'edit'>('preview');
-  const [modalOpen, setModalOpen] = useState(false);
-  if (!data.length) return <div className="text-slate-400 italic">No data uploaded.</div>;
-  const columns = Object.keys(data[0]);
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="font-semibold text-slate-700 text-lg">{title}</h3>
-        <div className="flex gap-2">
-          <ValidationSummary errors={errorSummary} onOpenModal={() => setModalOpen(true)} />
-          <button
-            className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 transition"
-            onClick={() => setMode(mode === 'preview' ? 'edit' : 'preview')}
-          >
-            {mode === 'preview' ? 'Edit' : 'Preview'}
-          </button>
-        </div>
-      </div>
-      <ValidationModal open={modalOpen} onClose={() => setModalOpen(false)} errors={errorSummary} />
-      {mode === 'preview' ? (
-        <EntityPreview data={data} />
-      ) : (
-        <EditableDataGrid columns={columns} data={data} errors={errors} onChange={setData} />
-      )}
-    </div>
-  );
-}
-
-function ValidationSummary({ errors, onOpenModal }: { errors: { rowIndex: number; column: string; message: string }[]; onOpenModal: () => void }) {
-  if (!errors.length) return (
-    <div className="mb-2 text-green-600 text-xs font-medium flex items-center gap-1">
-      <span className="inline-block w-2 h-2 rounded-full bg-green-500" /> All good! No errors found.
-    </div>
-  );
-  return (
-    <button
-      className="mb-2 text-red-600 text-xs font-medium flex items-center gap-1 hover:underline"
-      onClick={onOpenModal}
-      type="button"
-    >
-      <span className="inline-block w-2 h-2 rounded-full bg-red-500" />
-      {errors.length} error{errors.length > 1 ? 's' : ''} found (view)
-    </button>
-  );
-}
-
-function ValidationModal({ open, onClose, errors }: { open: boolean; onClose: () => void; errors: { rowIndex: number; column: string; message: string }[] }) {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="bg-white rounded-lg shadow-lg p-6 max-w-lg w-full relative animate-fade-in">
-        <button
-          className="absolute top-2 right-2 text-slate-400 hover:text-slate-700 text-xl font-bold"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          &times;
-        </button>
-        <h4 className="text-lg font-semibold mb-4 text-red-600">Validation Errors</h4>
-        {errors.length === 0 ? (
-          <p className="text-green-600">No errors found.</p>
-        ) : (
-          <div className="space-y-2 max-h-80 overflow-y-auto">
-            {errors.map((e, i) => (
-              <p key={i} className="text-slate-700 text-sm">
-                <span className="font-semibold">Row {e.rowIndex + 1}, {e.column}:</span> {e.message}
-              </p>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function EntityPreview({ data }: { data: any[] }) {
-  const [showAll, setShowAll] = useState(false);
-  if (!data.length) return <div className="text-slate-400 italic">No data uploaded.</div>;
-  const keys = Object.keys(data[0]);
-  const displayData = showAll ? data : data.slice(0, 5);
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <span className="font-semibold text-slate-700 text-lg">Preview</span>
-        {data.length > 5 && (
-          <button
-            className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 transition"
-            onClick={() => setShowAll((v) => !v)}
-          >
-            {showAll ? `Show First 5` : `Show All (${data.length})`}
-          </button>
-        )}
-      </div>
-      <div className={showAll ? "overflow-x-auto overflow-y-auto rounded border border-slate-200 max-h-96" : "overflow-x-auto rounded border border-slate-200"}>
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-50">
-            <tr>
-              {keys.map((k) => (
-                <th key={k} className="px-3 py-2 border-b text-left font-medium text-slate-600">{k}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {displayData.map((row, i) => (
-              <tr key={i} className="even:bg-slate-50">
-                {keys.map((k) => (
-                  <td key={k} className="px-3 py-2 border-b text-slate-700">
-                    {typeof row[k] === 'object' ? JSON.stringify(row[k]) : String(row[k])}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {!showAll && data.length > 5 && (
-          <div className="text-xs text-slate-500 px-2 py-1">Showing first 5 of {data.length} rows</div>
-        )}
-      </div>
     </div>
   );
 }
